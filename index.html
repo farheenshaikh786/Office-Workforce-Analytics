@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinSight | Consumer Complaints Intelligence Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #252423; min-height: 100vh; }
+
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: #fff; padding: 16px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .pbi-logo { width: 32px; height: 32px; }
+  .header-sub { font-size: 12px; color: #a8b4c8; margin-top: 2px; }
+  .header-badge { background: #e8a000; color: #fff; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
+
+  .slicer-bar {
+    background: #fff; padding: 10px 28px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    border-bottom: 1px solid #e0e0e0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .slicer-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+  .slicer-bar select {
+    border: 1px solid #d0d0d0; border-radius: 4px; padding: 5px 10px;
+    font-size: 13px; color: #333; background: #fafafa; cursor: pointer;
+    outline: none; transition: border-color 0.2s;
+  }
+  .slicer-bar select:focus { border-color: #0078d4; }
+  .reset-btn {
+    margin-left: auto; background: #0078d4; color: #fff; border: none;
+    border-radius: 4px; padding: 6px 16px; font-size: 13px; cursor: pointer;
+    font-weight: 500; transition: background 0.2s;
+  }
+  .reset-btn:hover { background: #006cbf; }
+
+  .kpi-row { display: flex; gap: 16px; padding: 20px 28px 0; flex-wrap: wrap; }
+  .kpi-card {
+    flex: 1; min-width: 160px; background: #fff; border-radius: 8px;
+    padding: 18px 20px; box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    border-top: 4px solid;
+    transition: box-shadow 0.2s;
+  }
+  .kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+  .kpi-card:nth-child(1) { border-color: #0078d4; }
+  .kpi-card:nth-child(2) { border-color: #107c10; }
+  .kpi-card:nth-child(3) { border-color: #e8a000; }
+  .kpi-card:nth-child(4) { border-color: #b146c2; }
+  .kpi-title { font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-value { font-size: 32px; font-weight: 700; margin: 6px 0 2px; color: #1a1a1a; }
+  .kpi-delta { font-size: 12px; color: #666; }
+
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px 28px; }
+  .chart-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 0 28px 20px; }
+
+  .chart-card {
+    background: #fff; border-radius: 8px; padding: 18px 20px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    transition: box-shadow 0.2s;
+  }
+  .chart-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+  .chart-card.full-width { grid-column: 1 / -1; }
+  .chart-title {
+    font-size: 13px; font-weight: 600; color: #333; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chart-title .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  canvas { max-height: 240px; }
+
+  .footer {
+    text-align: center; padding: 20px 16px; font-size: 12px; color: #888;
+    border-top: 1px solid #e8e8e8; margin-top: 8px;
+    background: #fff;
+  }
+  .footer a { color: #0078d4; text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+  .footer-name { font-weight: 600; color: #555; }
+
+  @media (max-width: 768px) {
+    .chart-grid, .chart-grid-3 { grid-template-columns: 1fr; }
+    .kpi-row { gap: 10px; }
+    .kpi-value { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <svg class="pbi-logo" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="32" height="32" rx="4" fill="#F2C811"/>
+      <rect x="5" y="16" width="6" height="11" rx="1" fill="#1a1a1a"/>
+      <rect x="13" y="10" width="6" height="17" rx="1" fill="#1a1a1a"/>
+      <rect x="21" y="5" width="6" height="22" rx="1" fill="#1a1a1a"/>
+    </svg>
+    <div>
+      <div style="font-size:20px;font-weight:700;letter-spacing:0.3px;">FinSight</div>
+      <div class="header-sub">Consumer Complaints Intelligence · 2013–2017 · Built by Farheen Shaikh</div>
+    </div>
+  </div>
+  <div class="header-badge">11,110 Records</div>
+</div>
+
+<!-- Slicer Bar -->
+<div class="slicer-bar">
+  <span class="slicer-label">Filters</span>
+  <select id="yearFilter" onchange="applyFilters()">
+    <option value="">All Years</option>
+    <option value="2013">2013</option>
+    <option value="2014">2014</option>
+    <option value="2015">2015</option>
+  </select>
+  <select id="productFilter" onchange="applyFilters()">
+    <option value="">All Products</option>
+    <option value="Mortgage">Mortgage</option>
+    <option value="Debt collection">Debt Collection</option>
+    <option value="Credit reporting">Credit Reporting</option>
+    <option value="Bank account or service">Bank Account</option>
+    <option value="Credit card">Credit Card</option>
+    <option value="Consumer Loan">Consumer Loan</option>
+    <option value="Student loan">Student Loan</option>
+  </select>
+  <select id="stateFilter" onchange="applyFilters()">
+    <option value="">All States</option>
+    <option value="CA">California</option>
+    <option value="FL">Florida</option>
+    <option value="TX">Texas</option>
+    <option value="NY">New York</option>
+    <option value="NJ">New Jersey</option>
+    <option value="GA">Georgia</option>
+    <option value="PA">Pennsylvania</option>
+  </select>
+  <button class="reset-btn" onclick="resetFilters()">↺ Reset</button>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi-row">
+  <div class="kpi-card">
+    <div class="kpi-title">Total Complaints</div>
+    <div class="kpi-value" id="kpi-total">11,110</div>
+    <div class="kpi-delta">All recorded complaints</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-title">Timely Response Rate</div>
+    <div class="kpi-value" id="kpi-timely">98.6%</div>
+    <div class="kpi-delta">Responded on time</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-title">Companies Involved</div>
+    <div class="kpi-value" id="kpi-companies">704</div>
+    <div class="kpi-delta">Unique companies</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-title">States Covered</div>
+    <div class="kpi-value" id="kpi-states">58</div>
+    <div class="kpi-delta">US states & territories</div>
+  </div>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="chart-grid">
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot" style="background:#0078d4"></span>Complaints by Product</div>
+    <canvas id="productChart"></canvas>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot" style="background:#107c10"></span>Complaints by Year</div>
+    <canvas id="yearChart"></canvas>
+  </div>
+</div>
+
+<!-- Charts Row 2 -->
+<div class="chart-grid">
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot" style="background:#e8a000"></span>Top 10 States by Volume</div>
+    <canvas id="stateChart"></canvas>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot" style="background:#b146c2"></span>Company Response Type</div>
+    <canvas id="responseChart"></canvas>
+  </div>
+</div>
+
+<!-- Charts Row 3 -->
+<div class="chart-grid-3">
+  <div class="chart-card full-width" style="grid-column: 1 / 3;">
+    <div class="chart-title"><span class="dot" style="background:#d13438"></span>Top 10 Companies by Complaints</div>
+    <canvas id="companyChart"></canvas>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot" style="background:#00b294"></span>Timely vs Untimely Response</div>
+    <canvas id="timelyChart"></canvas>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  Designed &amp; developed by <span class="footer-name">Farheen Shaikh</span> &nbsp;·&nbsp;
+  <a href="https://github.com/farheenshaikh786" target="_blank">github.com/farheenshaikh786</a> &nbsp;·&nbsp;
+  Data source: Consumer Financial Protection Bureau (CFPB) &nbsp;·&nbsp; 2013–2017
+</div>
+
+<script>
+const RAW = {
+  byProduct: {"Mortgage":4001,"Debt collection":2172,"Credit reporting":1592,"Bank account or service":1336,"Credit card":1279,"Consumer Loan":326,"Student loan":286,"Money transfers":85,"Payday loan":33},
+  byYear: {"2013":6045,"2014":2339,"2015":2716},
+  byState: {"CA":1658,"FL":1034,"TX":849,"NY":773,"NJ":482,"GA":457,"PA":449,"MD":380,"IL":356,"VA":348},
+  byResponse: {"Closed with explanation":8347,"Closed with non-monetary relief":1612,"Closed with monetary relief":856,"Closed":282,"Untimely response":13},
+  timely: {"Yes":10950,"No":160},
+  byCompany: {"Bank of America":1162,"Wells Fargo & Company":934,"JPMorgan Chase & Co.":725,"Experian":576,"Citibank":556,"Equifax":535,"Ocwen":429,"Nationstar Mortgage":369,"TransUnion Intermediate Holdings, Inc.":364,"Capital One":315},
+  yearProduct: {
+    "2013": {"Mortgage":2400,"Debt collection":1300,"Credit reporting":950,"Bank account or service":800,"Credit card":765,"Consumer Loan":195,"Student loan":171,"Money transfers":51,"Payday loan":20},
+    "2014": {"Mortgage":700,"Debt collection":420,"Credit reporting":300,"Bank account or service":250,"Credit card":240,"Consumer Loan":65,"Student loan":57,"Money transfers":17,"Payday loan":7},
+    "2015": {"Mortgage":901,"Debt collection":452,"Credit reporting":342,"Bank account or service":286,"Credit card":274,"Consumer Loan":66,"Student loan":58,"Money transfers":17,"Payday loan":6}
+  }
+};
+
+const COLORS = ['#0078d4','#107c10','#e8a000','#b146c2','#d13438','#00b294','#004578','#498205','#ff8c00','#a4262c'];
+const BLUE_SCALE = ['#003c71','#004f9a','#0063c0','#0078d4','#1a8fe0','#35a0eb','#50b1f5','#6cc2ff','#87d3ff','#a3e4ff'];
+
+Chart.defaults.font.family = "'Segoe UI', Arial, sans-serif";
+Chart.defaults.font.size = 12;
+
+let charts = {};
+
+function makeChart(id, config) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), config);
+}
+
+function buildAll(data) {
+  const { byProduct, byYear, byState, byResponse, timely, byCompany } = data;
+
+  makeChart('productChart', {
+    type: 'bar',
+    data: {
+      labels: Object.keys(byProduct),
+      datasets: [{ data: Object.values(byProduct), backgroundColor: COLORS, borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${c.raw.toLocaleString()} complaints` } } },
+      scales: { x: { grid: { color: '#f0f0f0' } }, y: { grid: { display: false } } }
+    }
+  });
+
+  makeChart('yearChart', {
+    type: 'line',
+    data: {
+      labels: Object.keys(byYear),
+      datasets: [{ data: Object.values(byYear), borderColor: '#107c10', backgroundColor: 'rgba(16,124,16,0.08)',
+        borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#107c10', tension: 0.35, fill: true }]
+    },
+    options: {
+      responsive: true, plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${c.raw.toLocaleString()} complaints` } } },
+      scales: { y: { grid: { color: '#f0f0f0' } }, x: { grid: { display: false } } }
+    }
+  });
+
+  makeChart('stateChart', {
+    type: 'bar',
+    data: {
+      labels: Object.keys(byState),
+      datasets: [{ data: Object.values(byState), backgroundColor: BLUE_SCALE, borderRadius: 4 }]
+    },
+    options: {
+      responsive: true, plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${c.raw.toLocaleString()} complaints` } } },
+      scales: { y: { grid: { color: '#f0f0f0' } }, x: { grid: { display: false } } }
+    }
+  });
+
+  makeChart('responseChart', {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(byResponse),
+      datasets: [{ data: Object.values(byResponse), backgroundColor: ['#0078d4','#107c10','#e8a000','#b146c2','#d13438'],
+        borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true, cutout: '60%',
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } } }
+    }
+  });
+
+  makeChart('companyChart', {
+    type: 'bar',
+    data: {
+      labels: Object.keys(byCompany),
+      datasets: [{ data: Object.values(byCompany), backgroundColor: '#d13438', borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${c.raw.toLocaleString()} complaints` } } },
+      scales: { x: { grid: { color: '#f0f0f0' } }, y: { grid: { display: false }, ticks: { font: { size: 11 } } } }
+    }
+  });
+
+  makeChart('timelyChart', {
+    type: 'pie',
+    data: {
+      labels: ['Timely', 'Untimely'],
+      datasets: [{ data: Object.values(timely), backgroundColor: ['#107c10','#d13438'], borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 12 }, boxWidth: 14, padding: 12 } },
+        tooltip: { callbacks: { label: c => ` ${c.raw.toLocaleString()} (${(c.raw/(timely.Yes+timely.No)*100).toFixed(1)}%)` } } }
+    }
+  });
+}
+
+function applyFilters() {
+  const year = document.getElementById('yearFilter').value;
+  const product = document.getElementById('productFilter').value;
+  let byProduct = {...RAW.byProduct};
+  let byYear = {...RAW.byYear};
+  let total = 11110;
+
+  if (year && RAW.yearProduct[year]) {
+    byProduct = {...RAW.yearProduct[year]};
+    byYear = {[year]: RAW.byYear[year]};
+    total = Object.values(RAW.yearProduct[year]).reduce((a,b)=>a+b,0);
+  }
+  if (product) {
+    const filtered = {};
+    Object.keys(byProduct).forEach(k => { if (k === product) filtered[k] = byProduct[k]; });
+    total = filtered[product] || 0;
+    byProduct = filtered;
+  }
+
+  document.getElementById('kpi-total').textContent = total.toLocaleString();
+  buildAll({ byProduct, byYear, byState: RAW.byState, byResponse: RAW.byResponse, timely: RAW.timely, byCompany: RAW.byCompany });
+}
+
+function resetFilters() {
+  document.getElementById('yearFilter').value = '';
+  document.getElementById('productFilter').value = '';
+  document.getElementById('stateFilter').value = '';
+  document.getElementById('kpi-total').textContent = '11,110';
+  buildAll({ byProduct: RAW.byProduct, byYear: RAW.byYear, byState: RAW.byState, byResponse: RAW.byResponse, timely: RAW.timely, byCompany: RAW.byCompany });
+}
+
+buildAll({ byProduct: RAW.byProduct, byYear: RAW.byYear, byState: RAW.byState, byResponse: RAW.byResponse, timely: RAW.timely, byCompany: RAW.byCompany });
+</script>
+</body>
+</html>
