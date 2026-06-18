@@ -40,7 +40,8 @@ The primary goal of this analysis is to identify key problem areas, track region
 ## 👩‍💻 About Me
 **Farheen Shaikh** — Data Analyst | Power BI | SQL | Excel | Power Query
 
-Operational background ke sath data workflows ko efficiently manage karne mein maharat. Main data patterns ko business insights mein badal kar systems ko behtar banane ke liye hamesha taiyar rehti hoon.
+I bring a strong operational background to the field of data analytics, with a proven ability to manage complex data workflows efficiently. I specialize in transforming raw data patterns into actionable business intelligence, helping organizations optimize systems and drive data-informed decision-making. I am passionate about leveraging technical expertise to solve real-world business challenges.
+
 
 *   **GitHub Profile**: [github.com/farheenshaikh786](https://github.com/farheenshaikh786)
 *   **LinkedIn Professional Link**: [linkedin.com/in/farheenshaikh786](https://linkedin.com/in/farheenshaikh786)
