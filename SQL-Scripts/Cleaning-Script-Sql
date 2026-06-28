@@ -1,0 +1,217 @@
+-- ------------------------------------------------
+-- STEP 1: Create a table to load raw CSV data
+-- ------------------------------------------------
+
+CREATE TABLE sales_raw (
+    Order_ID       INT,
+    Order_Date     VARCHAR(20),   -- stored as text because dates are mixed format
+    Brand          VARCHAR(50),
+    Model          VARCHAR(100),
+    Category       VARCHAR(20),
+    Price          INT,
+    Quantity       INT,
+    City           VARCHAR(50),
+    State          VARCHAR(50),
+    Payment_Mode   VARCHAR(20),
+    Discount_Pct   INT,
+    Rating         DECIMAL(3,1),
+    Total_Sale     INT,
+    Discount_Amt   DECIMAL(10,2),
+    Final_Revenue  DECIMAL(12,2)
+);
+
+-- Load CSV using SSMS Import Wizard or:
+-- BULK INSERT sales_raw FROM 'C:\your_path\MISSING-OFFICE-DATA.csv'
+-- WITH (FIRSTROW = 2, FIELDTERMINATOR = ',', ROWTERMINATOR = '\n');
+
+
+-- ------------------------------------------------
+-- STEP 2: Check for NULL values
+-- ------------------------------------------------
+
+SELECT
+    SUM(CASE WHEN Order_ID      IS NULL THEN 1 ELSE 0 END) AS null_order_id,
+    SUM(CASE WHEN Order_Date    IS NULL THEN 1 ELSE 0 END) AS null_date,
+    SUM(CASE WHEN Brand         IS NULL THEN 1 ELSE 0 END) AS null_brand,
+    SUM(CASE WHEN Price         IS NULL THEN 1 ELSE 0 END) AS null_price,
+    SUM(CASE WHEN Final_Revenue IS NULL THEN 1 ELSE 0 END) AS null_revenue
+FROM sales_raw;
+
+
+-- ------------------------------------------------
+-- STEP 3: Check for duplicate Order IDs
+-- ------------------------------------------------
+
+SELECT Order_ID, COUNT(*) AS count
+FROM sales_raw
+GROUP BY Order_ID
+HAVING COUNT(*) > 1;
+
+-- Result: 0 rows = no duplicates. Good!
+
+
+-- ------------------------------------------------
+-- STEP 4: Check unique values in key columns
+-- ------------------------------------------------
+
+-- Brand names
+SELECT DISTINCT Brand FROM sales_raw;
+-- Expected: Apple, Samsung, OnePlus, Xiaomi, Realme
+
+-- Category values
+SELECT DISTINCT Category FROM sales_raw;
+-- Expected: Premium, Mid-Range, Budget
+
+-- Payment modes
+SELECT DISTINCT Payment_Mode FROM sales_raw;
+-- Expected: COD, UPI, Credit Card, Debit Card
+
+
+-- ------------------------------------------------
+-- STEP 5: Check value ranges
+-- ------------------------------------------------
+
+SELECT
+    MIN(Price)       AS min_price,
+    MAX(Price)       AS max_price,
+    MIN(Discount_Pct)AS min_discount,
+    MAX(Discount_Pct)AS max_discount,
+    MIN(Rating)      AS min_rating,
+    MAX(Rating)      AS max_rating
+FROM sales_raw;
+
+
+-- ------------------------------------------------
+-- STEP 6: Fix date format issue
+-- The source has two formats:
+--   Format A: 1/1/2024   (M/D/YYYY)
+--   Format B: 31-10-2024 (DD-MM-YYYY)
+-- We convert both to proper DATE type
+-- ------------------------------------------------
+
+SELECT
+    Order_ID,
+    Order_Date,
+    CASE
+        WHEN Order_Date LIKE '%/%' THEN TRY_CONVERT(DATE, Order_Date, 101)
+        WHEN Order_Date LIKE '%-%' THEN TRY_CONVERT(DATE, Order_Date, 105)
+    END AS Clean_Date
+FROM sales_raw;
+
+
+-- ------------------------------------------------
+-- STEP 7: Create the clean final table
+-- ------------------------------------------------
+
+CREATE TABLE sales_clean (
+    Order_ID       INT PRIMARY KEY,
+    Order_Date     DATE,
+    Brand          VARCHAR(50),
+    Model          VARCHAR(100),
+    Category       VARCHAR(20),
+    Price          INT,
+    Quantity       INT,
+    City           VARCHAR(50),
+    State          VARCHAR(50),
+    Payment_Mode   VARCHAR(20),
+    Discount_Pct   INT,
+    Rating         DECIMAL(3,1),
+    Total_Sale     INT,
+    Discount_Amt   DECIMAL(10,2),
+    Final_Revenue  DECIMAL(12,2)
+);
+
+
+-- ------------------------------------------------
+-- STEP 8: Insert cleaned data into final table
+-- ------------------------------------------------
+
+INSERT INTO sales_clean
+SELECT
+    Order_ID,
+
+    -- Fix date format
+    CASE
+        WHEN Order_Date LIKE '%/%' THEN TRY_CONVERT(DATE, Order_Date, 101)
+        WHEN Order_Date LIKE '%-%' THEN TRY_CONVERT(DATE, Order_Date, 105)
+    END AS Order_Date,
+
+    -- Remove extra spaces from text columns
+    TRIM(Brand)        AS Brand,
+    TRIM(Model)        AS Model,
+    TRIM(Category)     AS Category,
+
+    Price,
+    Quantity,
+
+    TRIM(City)         AS City,
+    TRIM(State)        AS State,
+    TRIM(Payment_Mode) AS Payment_Mode,
+
+    Discount_Pct,
+    Rating,
+
+    -- Recalculate to make sure values are correct
+    Price * Quantity                                  AS Total_Sale,
+    ROUND(Price * Quantity * Discount_Pct / 100.0, 2) AS Discount_Amt,
+    ROUND(Price * Quantity * (1 - Discount_Pct / 100.0), 2) AS Final_Revenue
+
+FROM sales_raw;
+
+
+-- ------------------------------------------------
+-- STEP 9: Verify cleaned data
+-- ------------------------------------------------
+
+-- Total row count should be 500
+SELECT COUNT(*) AS total_rows FROM sales_clean;
+
+-- No NULLs in important columns
+SELECT
+    SUM(CASE WHEN Order_Date    IS NULL THEN 1 ELSE 0 END) AS null_date,
+    SUM(CASE WHEN Final_Revenue IS NULL THEN 1 ELSE 0 END) AS null_revenue
+FROM sales_clean;
+
+-- Date range check
+SELECT MIN(Order_Date) AS start_date,
+       MAX(Order_Date) AS end_date
+FROM sales_clean;
+
+
+-- ------------------------------------------------
+-- STEP 10: Basic analysis queries
+-- ------------------------------------------------
+
+-- Total revenue
+SELECT SUM(Final_Revenue) AS total_revenue FROM sales_clean;
+
+-- Revenue by Brand
+SELECT Brand,
+       COUNT(*)              AS total_orders,
+       SUM(Final_Revenue)    AS revenue,
+       AVG(Rating)           AS avg_rating
+FROM sales_clean
+GROUP BY Brand
+ORDER BY revenue DESC;
+
+-- Revenue by State
+SELECT State,
+       COUNT(*)           AS orders,
+       SUM(Final_Revenue) AS revenue
+FROM sales_clean
+GROUP BY State
+ORDER BY revenue DESC;
+
+-- Orders by Payment Mode
+SELECT Payment_Mode,
+       COUNT(*) AS total_orders
+FROM sales_clean
+GROUP BY Payment_Mode
+ORDER BY total_orders DESC;
+
+-- Revenue by Category
+SELECT Category,
+       SUM(Final_Revenue) AS revenue
+FROM sales_clean
+GROUP BY Category
+ORDER BY revenue DESC;
