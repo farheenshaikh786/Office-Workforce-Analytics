@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FinSight Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #0f1117;
+    color: #e0e6f0;
+    min-height: 100vh;
+  }
+
+  /* ── TOP NAV ── */
+  .topbar {
+    background: linear-gradient(90deg, #0d1b2a 0%, #1a2e44 100%);
+    border-bottom: 2px solid #1e90ff;
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, #1e90ff, #0050aa);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .topbar h1 { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+  .topbar p  { font-size: 11px; color: #7a9fc0; margin-top: 1px; }
+  .topbar-right { display: flex; align-items: center; gap: 16px; }
+  .badge {
+    background: #1e90ff22;
+    border: 1px solid #1e90ff55;
+    color: #5ab4ff;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .date-badge { color: #7a9fc0; font-size: 11px; }
+
+  /* ── FILTER BAR ── */
+  .filters {
+    background: #141824;
+    border-bottom: 1px solid #1e2d40;
+    padding: 10px 28px;
+    display: flex; align-items: center; gap: 16px;
+    flex-wrap: wrap;
+  }
+  .filter-label { font-size: 11px; color: #5a7a9a; text-transform: uppercase; letter-spacing: 1px; }
+  .filter-select {
+    background: #1a2535;
+    border: 1px solid #2a3f55;
+    color: #c0d4e8;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    outline: none;
+    cursor: pointer;
+  }
+  .filter-select:focus { border-color: #1e90ff; }
+  .filter-btn {
+    margin-left: auto;
+    background: #1e90ff;
+    color: #fff;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .filter-btn:hover { background: #0070dd; }
+
+  /* ── MAIN LAYOUT ── */
+  .main { padding: 20px 28px; display: flex; flex-direction: column; gap: 18px; }
+
+  /* ── KPI CARDS ── */
+  .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+  .kpi-card {
+    background: linear-gradient(145deg, #141e2e, #1a2840);
+    border: 1px solid #1e3050;
+    border-radius: 12px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); border-color: #1e90ff66; }
+  .kpi-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    border-radius: 12px 12px 0 0;
+  }
+  .kpi-card.blue::before   { background: linear-gradient(90deg, #1e90ff, #00c8ff); }
+  .kpi-card.green::before  { background: linear-gradient(90deg, #00c896, #00e0b0); }
+  .kpi-card.orange::before { background: linear-gradient(90deg, #ff8c42, #ffb347); }
+  .kpi-card.purple::before { background: linear-gradient(90deg, #9b59b6, #c39bd3); }
+  .kpi-card.teal::before   { background: linear-gradient(90deg, #1abc9c, #48d1cc); }
+
+  .kpi-icon { font-size: 22px; margin-bottom: 8px; }
+  .kpi-label { font-size: 10px; color: #5a7a9a; text-transform: uppercase; letter-spacing: 1px; }
+  .kpi-value { font-size: 22px; font-weight: 800; color: #fff; margin: 4px 0 2px; }
+  .kpi-sub { font-size: 11px; color: #4a9fc8; }
+  .kpi-trend { position: absolute; top: 16px; right: 16px; font-size: 11px; font-weight: 700; }
+  .trend-up   { color: #00c896; }
+  .trend-down { color: #ff5a5a; }
+
+  /* ── CHART GRID ── */
+  .chart-row { display: grid; gap: 14px; }
+  .row-2 { grid-template-columns: 2fr 1fr; }
+  .row-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .row-bottom { grid-template-columns: 1.5fr 1fr; }
+
+  .chart-card {
+    background: linear-gradient(145deg, #141e2e, #1a2840);
+    border: 1px solid #1e3050;
+    border-radius: 12px;
+    padding: 18px 20px;
+    transition: border-color 0.2s;
+  }
+  .chart-card:hover { border-color: #1e90ff44; }
+
+  .chart-header {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .chart-title {
+    font-size: 13px; font-weight: 700; color: #c8dff0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chart-title span { font-size: 15px; }
+  .chart-subtitle { font-size: 10px; color: #4a6a88; margin-top: 1px; }
+  .chart-badge {
+    font-size: 10px; padding: 3px 9px;
+    border-radius: 20px; font-weight: 600;
+  }
+  .badge-blue   { background: #1e90ff22; color: #5ab4ff; border: 1px solid #1e90ff44; }
+  .badge-green  { background: #00c89622; color: #00e0b0; border: 1px solid #00c89644; }
+  .badge-orange { background: #ff8c4222; color: #ffb347; border: 1px solid #ff8c4244; }
+
+  .chart-wrap { position: relative; }
+
+  /* ── STATE TABLE ── */
+  .state-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .state-table th {
+    text-align: left; padding: 8px 10px;
+    color: #4a6a88; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    border-bottom: 1px solid #1e3050;
+  }
+  .state-table td { padding: 9px 10px; border-bottom: 1px solid #1a2840; color: #c0d4e8; }
+  .state-table tr:hover td { background: #1e2e44; }
+  .state-table tr:last-child td { border-bottom: none; }
+  .rank-badge {
+    display: inline-block; width: 20px; height: 20px;
+    border-radius: 50%; text-align: center; line-height: 20px;
+    font-size: 10px; font-weight: 700;
+  }
+  .rank-1 { background: #ffd700; color: #1a1a1a; }
+  .rank-2 { background: #c0c0c0; color: #1a1a1a; }
+  .rank-3 { background: #cd7f32; color: #fff; }
+  .rank-other { background: #1e3050; color: #7a9fc0; }
+
+  .bar-inline {
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, #1e90ff, #00c8ff);
+    margin-top: 4px;
+  }
+
+  /* ── STARS ── */
+  .stars { color: #ffd700; font-size: 11px; letter-spacing: 1px; }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: #0d1520;
+    border-top: 1px solid #1e2d40;
+    padding: 12px 28px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .footer-left { font-size: 11px; color: #3a5a78; }
+  .footer-right { font-size: 11px; color: #3a5a78; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #0f1117; }
+  ::-webkit-scrollbar-thumb { background: #1e3050; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo-icon">📊</div>
+    <div>
+      <h1>FinSight Dashboard</h1>
+      <p>Mobile Phone Sales Intelligence · India 2024</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="badge">500 Orders</span>
+    <span class="badge">8 States</span>
+    <span class="badge">5 Brands</span>
+    <span class="date-badge">Jan – Dec 2024</span>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filters">
+  <span class="filter-label">Filters</span>
+  <select class="filter-select" id="filterBrand" onchange="applyFilters()">
+    <option value="All">All Brands</option>
+    <option>Apple</option>
+    <option>Samsung</option>
+    <option>OnePlus</option>
+    <option>Realme</option>
+    <option>Xiaomi</option>
+  </select>
+  <select class="filter-select" id="filterCategory" onchange="applyFilters()">
+    <option value="All">All Categories</option>
+    <option>Premium</option>
+    <option>Mid-Range</option>
+    <option>Budget</option>
+  </select>
+  <select class="filter-select" id="filterState" onchange="applyFilters()">
+    <option value="All">All States</option>
+    <option>Telangana</option>
+    <option>Uttar Pradesh</option>
+    <option>Gujarat</option>
+    <option>West Bengal</option>
+    <option>Rajasthan</option>
+    <option>Maharashtra</option>
+    <option>Karnataka</option>
+    <option>Delhi</option>
+  </select>
+  <button class="filter-btn" onclick="resetFilters()">↺ Reset</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- KPI ROW -->
+  <div class="kpi-row">
+    <div class="kpi-card blue">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-label">Total Revenue</div>
+      <div class="kpi-value" id="kpi-rev">₹3.54 Cr</div>
+      <div class="kpi-sub">Net after discounts</div>
+      <div class="kpi-trend trend-up">↑ 12.4%</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-icon">🛒</div>
+      <div class="kpi-label">Total Orders</div>
+      <div class="kpi-value" id="kpi-orders">500</div>
+      <div class="kpi-sub">Across 8 states</div>
+      <div class="kpi-trend trend-up">↑ 8.1%</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-icon">📦</div>
+      <div class="kpi-label">Avg Order Value</div>
+      <div class="kpi-value" id="kpi-aov">₹70.8K</div>
+      <div class="kpi-sub">Per transaction</div>
+      <div class="kpi-trend trend-up">↑ 4.2%</div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-icon">⭐</div>
+      <div class="kpi-label">Avg Rating</div>
+      <div class="kpi-value" id="kpi-rating">4.20</div>
+      <div class="kpi-sub">Customer satisfaction</div>
+      <div class="kpi-trend trend-up">↑ 0.3</div>
+    </div>
+    <div class="kpi-card teal">
+      <div class="kpi-icon">🏷️</div>
+      <div class="kpi-label">Avg Discount</div>
+      <div class="kpi-value" id="kpi-disc">12.6%</div>
+      <div class="kpi-sub">Applied per order</div>
+      <div class="kpi-trend trend-down">↓ 1.2%</div>
+    </div>
+  </div>
+
+  <!-- ROW 2: Line + Donut -->
+  <div class="chart-row row-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><span>📈</span> Monthly Revenue Trend</div>
+          <div class="chart-subtitle">Total revenue per month · Jan–Dec 2024</div>
+        </div>
+        <span class="chart-badge badge-blue">12 Months</span>
+      </div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="lineChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><span>🍩</span> Category Split</div>
+          <div class="chart-subtitle">Revenue share by tier</div>
+        </div>
+        <span class="chart-badge badge-green">3 Tiers</span>
+      </div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="donutChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 3: Brand Bar + Payment Donut + Rating -->
+  <div class="chart-row row-3">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><span>📊</span> Revenue by Brand</div>
+          <div class="chart-subtitle">Total net revenue · INR Lakhs</div>
+        </div>
+        <span class="chart-badge badge-blue">5 Brands</span>
+      </div>
+      <div class="chart-wrap" style="height:180px">
+        <canvas id="brandBar"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><span>💳</span> Payment Mode</div>
+          <div class="chart-subtitle">Orders by payment type</div>
+        </div>
+        <span class="chart-badge badge-orange">4 Types</span>
+      </div>
+      <div class="chart-wrap" style="height:180px">
+        <canvas id="paymentDonut"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><span>⭐</span> Brand Ratings</div>
+          <div class="chart-subtitle">Avg customer rating per brand</div>
+        </div>
+        <span class="chart-badge badge-green">Out of 5</span>
+      </div>
+      <div class="chart-wrap" style="height:180px">
+        <canvas id="ratingBar"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW BOTTOM: State table + Revenue by State bar -->
+  <div class="chart-row row-bottom">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><span>🗺️</span> State-wise Performance</div>
+          <div class="chart-subtitle">Revenue, orders and share — all 8 states</div>
+        </div>
+        <span class="chart-badge badge-blue">8 States</span>
+      </div>
+      <table class="state-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>State</th>
+            <th>Revenue</th>
+            <th>Orders</th>
+            <th>Share</th>
+            <th>Bar</th>
+          </tr>
+        </thead>
+        <tbody id="stateTableBody"></tbody>
+      </table>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title"><span>📉</span> Revenue by State</div>
+          <div class="chart-subtitle">Horizontal comparison</div>
+        </div>
+        <span class="chart-badge badge-orange">Ranked</span>
+      </div>
+      <div class="chart-wrap" style="height:260px">
+        <canvas id="stateBar"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-left">📱 FinSight Dashboard · Mobile Phone Sales Intelligence · India 2024</div>
+  <div class="footer-right">Source: MISSING-OFFICE-DATA.csv · 500 records · SQL + Power BI</div>
+</div>
+
+<script>
+// ── RAW DATA ──────────────────────────────────────────────────────
+const DATA = {
+  monthly: {
+    labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+    revenue: [13.32,13.39,22.25,11.83,11.30,15.96,9.50,6.58,13.30,11.76,7.06,16.70]
+  },
+  brands: {
+    labels: ['Realme','Samsung','OnePlus','Apple','Xiaomi'],
+    revenue: [82.94, 80.72, 71.11, 69.19, 50.04],
+    orders:  [113, 94, 93, 108, 92],
+    rating:  [4.24, 4.26, 4.25, 4.10, 4.17]
+  },
+  category: {
+    labels: ['Premium','Mid-Range','Budget'],
+    revenue: [238.06, 82.11, 33.83]
+  },
+  payment: {
+    labels: ['UPI','Credit Card','COD','Debit Card'],
+    orders: [129, 126, 125, 120]
+  },
+  states: [
+    { name: 'Telangana',     revenue: 55.26, orders: 65  },
+    { name: 'Uttar Pradesh', revenue: 47.49, orders: 65  },
+    { name: 'Gujarat',       revenue: 45.94, orders: 66  },
+    { name: 'West Bengal',   revenue: 45.85, orders: 64  },
+    { name: 'Rajasthan',     revenue: 44.13, orders: 63  },
+    { name: 'Maharashtra',   revenue: 40.78, orders: 67  },
+    { name: 'Karnataka',     revenue: 37.67, orders: 55  },
+    { name: 'Delhi',         revenue: 36.88, orders: 55  }
+  ]
+};
+
+// ── CHART DEFAULTS ────────────────────────────────────────────────
+Chart.defaults.color = '#5a7a9a';
+Chart.defaults.font.family = 'Segoe UI, Arial, sans-serif';
+Chart.defaults.font.size = 11;
+
+const gridColor  = '#1e3050';
+const tooltipBg  = '#0d1b2a';
+
+function tooltip() {
+  return {
+    backgroundColor: tooltipBg,
+    borderColor: '#1e90ff44',
+    borderWidth: 1,
+    titleColor: '#c0d4e8',
+    bodyColor: '#8ab4d0',
+    padding: 10,
+    cornerRadius: 8
+  };
+}
+
+// ── COLORS ───────────────────────────────────────────────────────
+const BRAND_COLORS = ['#1e90ff','#00c896','#ff8c42','#9b59b6','#1abc9c'];
+const CAT_COLORS   = ['#1e90ff','#00c896','#ff8c42'];
+const PAY_COLORS   = ['#1e90ff','#9b59b6','#ff8c42','#1abc9c'];
+
+// ── 1. LINE CHART ─────────────────────────────────────────────────
+const lineCtx = document.getElementById('lineChart').getContext('2d');
+const lineGrad = lineCtx.createLinearGradient(0,0,0,200);
+lineGrad.addColorStop(0,'rgba(30,144,255,0.35)');
+lineGrad.addColorStop(1,'rgba(30,144,255,0.02)');
+
+const lineChart = new Chart(lineCtx, {
+  type: 'line',
+  data: {
+    labels: DATA.monthly.labels,
+    datasets: [{
+      label: 'Revenue (₹L)',
+      data: DATA.monthly.revenue,
+      borderColor: '#1e90ff',
+      backgroundColor: lineGrad,
+      borderWidth: 2.5,
+      pointBackgroundColor: '#1e90ff',
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      tension: 0.4,
+      fill: true
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ₹' + c.raw + ' L' }, ...tooltip() } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: '#5a7a9a' } },
+      y: { grid: { color: gridColor }, ticks: { color: '#5a7a9a', callback: v => '₹'+v+'L' } }
+    }
+  }
+});
+
+// ── 2. CATEGORY DONUT ─────────────────────────────────────────────
+new Chart(document.getElementById('donutChart'), {
+  type: 'doughnut',
+  data: {
+    labels: DATA.category.labels,
+    datasets: [{ data: DATA.category.revenue, backgroundColor: CAT_COLORS, borderColor: '#141e2e', borderWidth: 3, hoverOffset: 6 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    cutout: '68%',
+    plugins: {
+      legend: { position: 'right', labels: { color: '#8ab4d0', padding: 12, font: { size: 11 } } },
+      tooltip: { callbacks: { label: c => ' ₹' + c.raw + ' L (' + Math.round(c.raw/354*100) + '%)' }, ...tooltip() }
+    }
+  }
+});
+
+// ── 3. BRAND BAR ──────────────────────────────────────────────────
+new Chart(document.getElementById('brandBar'), {
+  type: 'bar',
+  data: {
+    labels: DATA.brands.labels,
+    datasets: [{
+      label: 'Revenue (₹L)',
+      data: DATA.brands.revenue,
+      backgroundColor: BRAND_COLORS.map(c => c + 'cc'),
+      borderColor: BRAND_COLORS,
+      borderWidth: 1.5,
+      borderRadius: 5
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ₹' + c.raw + ' L' }, ...tooltip() } },
+    scales: {
+      x: { grid: { color: 'transparent' }, ticks: { color: '#5a7a9a' } },
+      y: { grid: { color: gridColor }, ticks: { color: '#5a7a9a', callback: v => '₹'+v+'L' } }
+    }
+  }
+});
+
+// ── 4. PAYMENT DONUT ──────────────────────────────────────────────
+new Chart(document.getElementById('paymentDonut'), {
+  type: 'doughnut',
+  data: {
+    labels: DATA.payment.labels,
+    datasets: [{ data: DATA.payment.orders, backgroundColor: PAY_COLORS, borderColor: '#141e2e', borderWidth: 3, hoverOffset: 6 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    cutout: '65%',
+    plugins: {
+      legend: { position: 'right', labels: { color: '#8ab4d0', padding: 10, font: { size: 11 } } },
+      tooltip: { callbacks: { label: c => ' ' + c.raw + ' orders' }, ...tooltip() }
+    }
+  }
+});
+
+// ── 5. RATING BAR ─────────────────────────────────────────────────
+new Chart(document.getElementById('ratingBar'), {
+  type: 'bar',
+  data: {
+    labels: DATA.brands.labels,
+    datasets: [{
+      label: 'Avg Rating',
+      data: DATA.brands.rating,
+      backgroundColor: BRAND_COLORS.map(c => c + 'bb'),
+      borderColor: BRAND_COLORS,
+      borderWidth: 1.5,
+      borderRadius: 5
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ⭐ ' + c.raw }, ...tooltip() } },
+    scales: {
+      x: { grid: { color: 'transparent' }, ticks: { color: '#5a7a9a' } },
+      y: { min: 3.8, max: 5, grid: { color: gridColor }, ticks: { color: '#5a7a9a' } }
+    }
+  }
+});
+
+// ── 6. STATE HORIZONTAL BAR ───────────────────────────────────────
+new Chart(document.getElementById('stateBar'), {
+  type: 'bar',
+  data: {
+    labels: DATA.states.map(s => s.name),
+    datasets: [{
+      label: 'Revenue (₹L)',
+      data: DATA.states.map(s => s.revenue),
+      backgroundColor: 'rgba(30,144,255,0.25)',
+      borderColor: '#1e90ff',
+      borderWidth: 1.5,
+      borderRadius: 4
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ₹' + c.raw + ' L' }, ...tooltip() } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: '#5a7a9a', callback: v => '₹'+v+'L' } },
+      y: { grid: { color: 'transparent' }, ticks: { color: '#8ab4d0' } }
+    }
+  }
+});
+
+// ── STATE TABLE ────────────────────────────────────────────────────
+const tbody = document.getElementById('stateTableBody');
+const total = DATA.states.reduce((s, r) => s + r.revenue, 0);
+const maxRev = DATA.states[0].revenue;
+
+DATA.states.forEach((s, i) => {
+  const share = ((s.revenue / total) * 100).toFixed(1);
+  const barPct = Math.round((s.revenue / maxRev) * 100);
+  const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-other';
+  tbody.innerHTML += `
+    <tr>
+      <td><span class="rank-badge ${rankClass}">${i+1}</span></td>
+      <td>${s.name}</td>
+      <td style="color:#5ab4ff;font-weight:600">₹${s.revenue}L</td>
+      <td>${s.orders}</td>
+      <td style="color:#00c896">${share}%</td>
+      <td style="min-width:70px"><div class="bar-inline" style="width:${barPct}%"></div></td>
+    </tr>`;
+});
+
+// ── FILTER LOGIC ──────────────────────────────────────────────────
+function applyFilters() {
+  // Visual only — shows selected filter state
+  const b = document.getElementById('filterBrand').value;
+  const c = document.getElementById('filterCategory').value;
+  const s = document.getElementById('filterState').value;
+  console.log('Filters:', b, c, s);
+}
+function resetFilters() {
+  document.getElementById('filterBrand').value    = 'All';
+  document.getElementById('filterCategory').value = 'All';
+  document.getElementById('filterState').value    = 'All';
+}
+</script>
+</body>
+</html>
